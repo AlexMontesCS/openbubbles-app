@@ -9,13 +9,14 @@ on:
 
 jobs:
   build-linux:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           submodules: recursive
+          fetch-depth: 0
 
       - name: Ensure telephony_plus exists
         run: |
@@ -39,12 +40,16 @@ jobs:
             cmake \
             ninja-build \
             pkg-config \
+            python3 \
             libgtk-3-dev \
+            gtk+-3.0 \
+            libglib2.0-dev \
             liblzma-dev \
             libstdc++-12-dev \
-            libwebkit2gtk-4.1-dev \
             libnotify-dev \
-            python3
+            libwebkit2gtk-4.1-dev \
+            libsoup-3.0-dev \
+            libayatana-appindicator3-dev
 
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
@@ -53,18 +58,23 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: "17"
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.44.0'
+          flutter-version: "3.44.0"
+          cache: true
 
-      - name: Flutter doctor
+      - name: Tool versions
         run: |
           flutter --version
           dart --version
-          flutter doctor -v
+          rustc --version
+          cargo --version
+          java -version
+          cmake --version
+          pkg-config --version
 
       - name: Patch pubspec for CI
         run: |
@@ -84,20 +94,28 @@ jobs:
               s = s.replace(r, "")
 
           p.write_text(s)
-          print("Patched pubspec.yaml")
+          print("Patched pubspec.yaml for CI")
           PY
 
-          echo "---- patched dev_dependencies ----"
-          awk '
-            /^dev_dependencies:/ {flag=1}
-            flag {print}
-            /^flutter_icons:/ {flag=0}
-          ' pubspec.yaml
+      - name: Upgrade open_filex if present
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("pubspec.yaml")
+          s = p.read_text()
+          s = s.replace("open_filex: ^4.4.0", "open_filex: ^4.7.0")
+          p.write_text(s)
+          print("Patched open_filex version if present")
+          PY
+          grep -n "open_filex" pubspec.yaml || true
 
-      - name: Pre-fetch dependencies
+      - name: Flutter pub get
         run: flutter pub get
 
-      - name: Run repo build script
+      - name: Flutter doctor
+        run: flutter doctor -v
+
+      - name: Build Linux app
         run: |
           chmod +x ./linux/build.sh
           ./linux/build.sh
@@ -113,7 +131,7 @@ jobs:
             -o -path "*/dist/*" \
             -o -path "*/target/release/*" \) \
             -type f -exec cp --parents {} artifact/ \; || true
-          find artifact -maxdepth 5 -type f | sort || true
+          find artifact -type f | sort || true
 
       - name: Upload artifact
         if: always()
