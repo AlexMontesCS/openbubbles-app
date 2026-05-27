@@ -43,6 +43,7 @@ jobs:
             liblzma-dev \
             libstdc++-12-dev \
             libwebkit2gtk-4.1-dev \
+            libnotify-dev \
             python3
 
       - name: Set up Rust
