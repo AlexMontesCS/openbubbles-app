@@ -17,6 +17,14 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Ensure telephony_plus exists
+        run: |
+          if [ ! -f telephony_plus/pubspec.yaml ]; then
+            rm -rf telephony_plus
+            git clone https://github.com/OpenBubbles/telephony_plus.git telephony_plus
+          fi
+          test -f telephony_plus/pubspec.yaml
+
       - name: Install system packages
         run: |
           sudo apt-get update
@@ -33,7 +41,8 @@ jobs:
             pkg-config \
             libgtk-3-dev \
             liblzma-dev \
-            libstdc++-12-dev
+            libstdc++-12-dev \
+            python3
 
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
@@ -47,30 +56,65 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.19.6'
-      
+          flutter-version: '3.44.0'
+
       - name: Flutter doctor
-        run: flutter doctor -v
-      - name: Patch palette_generator version
         run: |
-          sed -i 's/palette_generator: .*/palette_generator: 0.3.3+5/' pubspec.yaml
-          grep -n "palette_generator" pubspec.yaml
-      
+          flutter --version
+          dart --version
+          flutter doctor -v
+
+      - name: Patch pubspec for CI
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("pubspec.yaml")
+          s = p.read_text()
+
+          removals = [
+              "  build_verify: ^3.1.0\n",
+              "  flutter_launcher_icons: ^0.13.1\n",
+              "  flutter_native_splash: ^2.4.0\n",
+              "  peanut: ^5.0.0\n",
+              "  freezed: ^2.4.1\n",
+          ]
+          for r in removals:
+              s = s.replace(r, "")
+
+          p.write_text(s)
+          print("Patched pubspec.yaml")
+          PY
+
+          echo "---- patched dev_dependencies ----"
+          awk '
+            /^dev_dependencies:/ {flag=1}
+            flag {print}
+            /^flutter_icons:/ {flag=0}
+          ' pubspec.yaml
+
+      - name: Pre-fetch dependencies
+        run: flutter pub get
+
       - name: Run repo build script
         run: |
           chmod +x ./linux/build.sh
           ./linux/build.sh
+
       - name: Collect likely outputs
+        if: always()
         run: |
           mkdir -p artifact
           find . \
             \( -path "*/build/linux/x64/release/bundle/*" \
             -o -path "*/build/linux/*/release/bundle/*" \
             -o -path "*/linux/output/*" \
-            -o -path "*/dist/*" \) \
+            -o -path "*/dist/*" \
+            -o -path "*/target/release/*" \) \
             -type f -exec cp --parents {} artifact/ \; || true
+          find artifact -maxdepth 5 -type f | sort || true
 
       - name: Upload artifact
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: openbubbles-linux-build
