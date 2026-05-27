@@ -47,16 +47,15 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          channel: stable
-
+          flutter-version: '3.19.6'
+      
       - name: Flutter doctor
         run: flutter doctor -v
-
-      - name: Make build script executable
-        run: chmod +x ./linux/build.sh
-
+      
       - name: Run repo build script
-        run: ./linux/build.sh
+        run: |
+          chmod +x ./linux/build.sh
+          ./linux/build.sh
 
       - name: Collect likely outputs
         run: |
