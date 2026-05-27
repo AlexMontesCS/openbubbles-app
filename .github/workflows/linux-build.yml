@@ -51,12 +51,15 @@ jobs:
       
       - name: Flutter doctor
         run: flutter doctor -v
+      - name: Patch palette_generator version
+        run: |
+          sed -i 's/palette_generator: .*/palette_generator: 0.3.3+5/' pubspec.yaml
+          grep -n "palette_generator" pubspec.yaml
       
       - name: Run repo build script
         run: |
           chmod +x ./linux/build.sh
           ./linux/build.sh
-
       - name: Collect likely outputs
         run: |
           mkdir -p artifact
