@@ -16,6 +16,16 @@ jobs:
       PROTOC: /usr/bin/protoc
 
     steps:
+      - name: Free Disk Space
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          swap-storage: true
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
@@ -69,7 +79,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: "21"
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
@@ -91,6 +101,30 @@ jobs:
         run: |
           rm -f ~/.cargo/.package-cache || true
           rm -f ~/.cargo/.global-cache || true
+
+      - name: Set up fake Fairplay keys
+        run: |
+          mkdir -p rustpush/certs/fairplay
+
+          cert_names=(
+            "4056631661436364584235346952193"
+            "4056631661436364584235346952194"
+            "4056631661436364584235346952195"
+            "4056631661436364584235346952196"
+            "4056631661436364584235346952197"
+            "4056631661436364584235346952198"
+            "4056631661436364584235346952199"
+            "4056631661436364584235346952200"
+            "4056631661436364584235346952201"
+            "4056631661436364584235346952208"
+          )
+
+          for name in "${cert_names[@]}"; do
+            cp rustpush/certs/legacy-fairplay/fairplay.pem rustpush/certs/fairplay/$name.pem
+            cp rustpush/certs/legacy-fairplay/fairplay.crt rustpush/certs/fairplay/$name.crt
+          done
+
+          ls -R rustpush/certs
 
       - name: Patch pubspec for CI
         run: |
