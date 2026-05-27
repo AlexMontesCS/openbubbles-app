@@ -10,6 +10,10 @@ on:
 jobs:
   build-linux:
     runs-on: ubuntu-24.04
+    env:
+      CARGO_TERM_COLOR: always
+      CARGO_NET_GIT_FETCH_WITH_CLI: true
+      PROTOC: /usr/bin/protoc
 
     steps:
       - name: Checkout
@@ -50,8 +54,14 @@ jobs:
             libsoup-3.0-dev \
             libayatana-appindicator3-dev \
             libmpv-dev \
-            mpv
-            
+            mpv \
+            protobuf-compiler
+
+      - name: Verify protoc
+        run: |
+          which protoc
+          protoc --version
+
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
 
@@ -77,6 +87,11 @@ jobs:
           cmake --version
           pkg-config --version
 
+      - name: Clear Cargo lock files
+        run: |
+          rm -f ~/.cargo/.package-cache || true
+          rm -f ~/.cargo/.global-cache || true
+
       - name: Patch pubspec for CI
         run: |
           python3 - <<'PY'
@@ -94,21 +109,11 @@ jobs:
           for r in removals:
               s = s.replace(r, "")
 
+          s = s.replace("open_filex: ^4.4.0", "open_filex: ^4.7.0")
+
           p.write_text(s)
           print("Patched pubspec.yaml for CI")
           PY
-
-      - name: Upgrade open_filex if present
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          p = Path("pubspec.yaml")
-          s = p.read_text()
-          s = s.replace("open_filex: ^4.4.0", "open_filex: ^4.7.0")
-          p.write_text(s)
-          print("Patched open_filex version if present")
-          PY
-          grep -n "open_filex" pubspec.yaml || true
 
       - name: Flutter pub get
         run: flutter pub get
